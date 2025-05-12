@@ -64,25 +64,14 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              console.log('Hotjar initialization started');
-              (function (c, s, q, u, a, r, e) {
-                c.hj=c.hj||function(){(c.hj.q=c.hj.q||[]).push(arguments)};
-                c._hjSettings = { hjid: a };
-                r = s.getElementsByTagName('head')[0];
-                e = s.createElement('script');
-                e.async = true;
-                e.src = q + c._hjSettings.hjid + u;
-                e.onload = function() {
-                  console.log('Hotjar script loaded successfully');
-                };
-                e.onerror = function() {
-                  console.error('Failed to load Hotjar script');
-                };
-                r.appendChild(e);
-              })(window, document, 'https://static.hj.contentsquare.net/c/csq-', '.js', ${process.env.NEXT_PUBLIC_HOTJAR_ID});
+              (function(c,l,a,r,i,t,y){
+                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "ri55m8n34r");
             `,
           }}
-        />  
+        />
       </head>
       <body className="flex h-[100dvh] flex-col overflow-hidden bg-web bg-cover bg-center font-pretendard">
         <MSWProvider />
