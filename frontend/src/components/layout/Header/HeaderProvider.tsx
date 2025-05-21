@@ -129,6 +129,10 @@ export const HeaderProvider = ({ children }: HeaderProviderProps) => {
       setShouldShowDetail(true);
       setSeatDetail('시야 보기');
     }
+    else if (path.match(/^\/sight\/reviews\/[^\/]+$/)) {
+      setShouldShowDetail(true);
+      setSeatDetail('리뷰 보기');
+    }
     // /sight/[arenaId]/[sectionId] - 좌석 선택 페이지
     else if (path.match(/^\/sight\/[^\/]+\/[^\/]+$/)) {
       setShouldShowDetail(true);
