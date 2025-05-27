@@ -1,3 +1,0 @@
-chatbot:
-  python:
-    url: ${CHATBOT_PYTHON_URL}

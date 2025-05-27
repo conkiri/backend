@@ -8,11 +8,14 @@ spring:
         - db-local
         - cloud
         - redis
-        - chatbot
+        - rabbitmq-local
+        - fcm
       dev:
         - oauth
         - db-dev
         - cloud
         - redis
-        - chatbot
-    include: oauth, db, cloud, redis, chatbot
+        - rabbitmq-dev
+        - fcm
+    include: oauth, db, cloud, redis, rabbitmq, fcm
+  
