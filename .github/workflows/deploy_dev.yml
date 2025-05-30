@@ -63,7 +63,7 @@ jobs:
           CHATBOT_PYTHON_URL: ${{ secrets.CHATBOT_PYTHON_URL }}
         run: |
           cd ../../
-          docker-compose -f docker-compose-dev.yml build \
+          docker compose -f docker-compose-dev.yml build \
             --build-arg KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID} \
             --build-arg KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET} \
             --build-arg KAKAO_REDIRECT_URI=${KAKAO_REDIRECT_URI} \
@@ -85,7 +85,7 @@ jobs:
             --build-arg FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID} \
             --build-arg FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID} \
             --build-arg CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL}
-          docker-compose -f docker-compose-dev.yml push
+          docker compose -f docker-compose-dev.yml push
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -95,5 +95,5 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/app
-            docker-compose -f docker-compose-dev.yml pull
-            docker-compose -f docker-compose-dev.yml up -d
+            docker compose -f docker-compose-dev.yml pull
+            docker compose -f docker-compose-dev.yml up -d
