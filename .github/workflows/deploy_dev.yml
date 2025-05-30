@@ -1,0 +1,99 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build -x test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push images using docker-compose
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          KAKAO_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
+          AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          REDIS_HOST: ${{ secrets.REDIS_HOST }}
+          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          FIREBASE_CLIENT_ID: ${{ secrets.FIREBASE_CLIENT_ID }}
+          FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+          CHATBOT_PYTHON_URL: ${{ secrets.CHATBOT_PYTHON_URL }}
+        run: |
+          cd ../../
+          docker-compose -f docker-compose-dev.yml build \
+            --build-arg KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID} \
+            --build-arg KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET} \
+            --build-arg KAKAO_REDIRECT_URI=${KAKAO_REDIRECT_URI} \
+            --build-arg JWT_SECRET_KEY=${JWT_SECRET_KEY} \
+            --build-arg DB_URL=${DB_URL} \
+            --build-arg DB_USERNAME=${DB_USERNAME} \
+            --build-arg DB_PASSWORD=${DB_PASSWORD} \
+            --build-arg FRONTEND_URL=${FRONTEND_URL} \
+            --build-arg AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
+            --build-arg AWS_SECRET_KEY=${AWS_SECRET_KEY} \
+            --build-arg AWS_REGION=${AWS_REGION} \
+            --build-arg S3_BUCKET=${S3_BUCKET} \
+            --build-arg REDIS_HOST=${REDIS_HOST} \
+            --build-arg RABBITMQ_USERNAME=${RABBITMQ_USERNAME} \
+            --build-arg RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD} \
+            --build-arg FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID} \
+            --build-arg FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL} \
+            --build-arg FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY} \
+            --build-arg FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID} \
+            --build-arg FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID} \
+            --build-arg CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL}
+          docker-compose -f docker-compose-dev.yml push
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/app
+            docker-compose -f docker-compose-dev.yml pull
+            docker-compose -f docker-compose-dev.yml up -d
