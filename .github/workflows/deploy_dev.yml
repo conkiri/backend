@@ -62,7 +62,6 @@ jobs:
           FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
           CHATBOT_PYTHON_URL: ${{ secrets.CHATBOT_PYTHON_URL }}
         run: |
-          cd ../../
           docker compose -f docker-compose-dev.yml build \
             --build-arg KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID} \
             --build-arg KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET} \
