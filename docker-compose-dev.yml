@@ -32,13 +32,6 @@ services:
       - FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID}
       - FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID}
       - CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     networks:
       app-network:
         aliases:
