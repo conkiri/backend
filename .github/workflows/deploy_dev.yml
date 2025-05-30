@@ -62,7 +62,7 @@ jobs:
           FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
           CHATBOT_PYTHON_URL: ${{ secrets.CHATBOT_PYTHON_URL }}
         run: |
-          docker compose -f docker-compose-dev.yml build \
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }} \
             --build-arg KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID} \
             --build-arg KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET} \
             --build-arg KAKAO_REDIRECT_URI=${KAKAO_REDIRECT_URI} \
@@ -83,8 +83,19 @@ jobs:
             --build-arg FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY} \
             --build-arg FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID} \
             --build-arg FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID} \
-            --build-arg CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL}
-          docker compose -f docker-compose-dev.yml push
+            --build-arg CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL} \
+            ./backend
+          docker push ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
+
+      - name: Copy docker-compose file to EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose-dev.yml"
+          target: "/home/ubuntu/app"
+          strip_components: 0
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
@@ -94,5 +105,36 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/app
-            docker compose -f docker-compose-dev.yml pull
-            docker compose -f docker-compose-dev.yml up -d
+            docker pull ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
+            docker stop backend-dev || true
+            docker rm backend-dev || true
+            docker run -d \
+              --name backend-dev \
+              --network app-network \
+              -p 8085:8080 \
+              -e SPRING_PROFILES_ACTIVE=dev \
+              -e TZ=Asia/Seoul \
+              -e KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }} \
+              -e KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }} \
+              -e KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }} \
+              -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
+              -e DB_URL=${{ secrets.DB_URL }} \
+              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+              -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
+              -e AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }} \
+              -e AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }} \
+              -e AWS_REGION=${{ secrets.AWS_REGION }} \
+              -e S3_BUCKET=${{ secrets.S3_BUCKET }} \
+              -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
+              -e RABBITMQ_HOST=rabbitmq \
+              -e RABBITMQ_PORT=5672 \
+              -e RABBITMQ_USERNAME=${{ secrets.RABBITMQ_USERNAME }} \
+              -e RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }} \
+              -e FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }} \
+              -e FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }} \
+              -e FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }} \
+              -e FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }} \
+              -e FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }} \
+              -e CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }} \
+              ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
