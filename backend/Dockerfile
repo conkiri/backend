@@ -14,7 +14,7 @@ COPY src /app/src
 RUN gradle build -x test
 
 # 실행 스테이지
-FROM openjdk:17-slim
+FROM eclipse-temurin:17-jre
 
 # 보안을 위한 비 root 사용자 생성
 RUN addgroup --system appgroup && adduser --system appuser --ingroup appgroup
