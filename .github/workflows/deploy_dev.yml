@@ -72,6 +72,6 @@ jobs:
             CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }}
             EOF
             
-            docker-compose -f docker-compose-dev.yml down
-            docker-compose -f docker-compose-dev.yml up -d --build
+            docker compose -f docker-compose-dev.yml down
+            docker compose -f docker-compose-dev.yml up -d --build
             docker image prune -f
