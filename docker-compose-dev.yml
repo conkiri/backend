@@ -1,7 +1,7 @@
 services:
   backend-dev:
     container_name: backend
-    build: ./backend
+    image: ${DOCKER_IMAGE}
     ports:
       - "8080:8080"
     env_file:
