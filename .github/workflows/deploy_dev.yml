@@ -25,79 +25,16 @@ jobs:
       - name: Build with Gradle
         run: cd backend && ./gradlew build -x test
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build and push images using docker-compose
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
-          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
-          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          KAKAO_REDIRECT_URI: ${{ secrets.KAKAO_REDIRECT_URI }}
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
-          AWS_ACCESS_KEY: ${{ secrets.AWS_ACCESS_KEY }}
-          AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          REDIS_HOST: ${{ secrets.REDIS_HOST }}
-          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
-          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-          FIREBASE_CLIENT_ID: ${{ secrets.FIREBASE_CLIENT_ID }}
-          FIREBASE_PRIVATE_KEY_ID: ${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
-          CHATBOT_PYTHON_URL: ${{ secrets.CHATBOT_PYTHON_URL }}
-        run: |
-          docker build -t ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }} \
-            --build-arg KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID} \
-            --build-arg KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET} \
-            --build-arg KAKAO_REDIRECT_URI=${KAKAO_REDIRECT_URI} \
-            --build-arg JWT_SECRET_KEY=${JWT_SECRET_KEY} \
-            --build-arg DB_URL=${DB_URL} \
-            --build-arg DB_USERNAME=${DB_USERNAME} \
-            --build-arg DB_PASSWORD=${DB_PASSWORD} \
-            --build-arg FRONTEND_URL=${FRONTEND_URL} \
-            --build-arg AWS_ACCESS_KEY=${AWS_ACCESS_KEY} \
-            --build-arg AWS_SECRET_KEY=${AWS_SECRET_KEY} \
-            --build-arg AWS_REGION=${AWS_REGION} \
-            --build-arg S3_BUCKET=${S3_BUCKET} \
-            --build-arg REDIS_HOST=${REDIS_HOST} \
-            --build-arg RABBITMQ_USERNAME=${RABBITMQ_USERNAME} \
-            --build-arg RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD} \
-            --build-arg FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID} \
-            --build-arg FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL} \
-            --build-arg FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY} \
-            --build-arg FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID} \
-            --build-arg FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID} \
-            --build-arg CHATBOT_PYTHON_URL=${CHATBOT_PYTHON_URL} \
-            ./backend
-          docker push ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
-
-      - name: Copy docker-compose file to EC2
+      - name: Copy files to Server
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose-dev.yml"
+          source: "docker-compose-dev.yml,backend/Dockerfile,backend/build/libs/*.jar"
           target: "/home/ubuntu/app"
-          strip_components: 0
 
-      - name: Deploy to EC2
+      - name: Deploy to Server
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -105,37 +42,36 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/app
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            docker pull ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
-            docker stop backend-dev || true
-            docker rm backend-dev || true
-            docker run -d \
-              --name backend-dev \
-              --network app-network \
-              -p 8085:8080 \
-              -e SPRING_PROFILES_ACTIVE=dev \
-              -e TZ=Asia/Seoul \
-              -e KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }} \
-              -e KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }} \
-              -e KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }} \
-              -e JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }} \
-              -e DB_URL=${{ secrets.DB_URL }} \
-              -e DB_USERNAME=${{ secrets.DB_USERNAME }} \
-              -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-              -e FRONTEND_URL=${{ secrets.FRONTEND_URL }} \
-              -e AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }} \
-              -e AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }} \
-              -e AWS_REGION=${{ secrets.AWS_REGION }} \
-              -e S3_BUCKET=${{ secrets.S3_BUCKET }} \
-              -e REDIS_HOST=${{ secrets.REDIS_HOST }} \
-              -e RABBITMQ_HOST=rabbitmq \
-              -e RABBITMQ_PORT=5672 \
-              -e RABBITMQ_USERNAME=${{ secrets.RABBITMQ_USERNAME }} \
-              -e RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }} \
-              -e FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }} \
-              -e FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }} \
-              -e FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }} \
-              -e FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }} \
-              -e FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }} \
-              -e CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }} \
-              ${{ steps.login-ecr.outputs.registry }}/backend-dev:${{ github.sha }}
+            
+            cat <<EOF > .env
+            SPRING_PROFILES_ACTIVE=dev
+            TZ=Asia/Seoul
+            KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}
+            KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}
+            KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }}
+            JWT_SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            AWS_ACCESS_KEY=${{ secrets.AWS_ACCESS_KEY }}
+            AWS_SECRET_KEY=${{ secrets.AWS_SECRET_KEY }}
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            S3_BUCKET=${{ secrets.S3_BUCKET }}
+            S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}
+            REDIS_HOST=${{ secrets.REDIS_HOST }}
+            RABBITMQ_HOST=rabbitmq
+            RABBITMQ_PORT=5672
+            RABBITMQ_USERNAME=${{ secrets.RABBITMQ_USERNAME }}
+            RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
+            FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+            FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+            FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }}
+            FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
+            CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }}
+            EOF
+            
+            docker-compose -f docker-compose-dev.yml down
+            docker-compose -f docker-compose-dev.yml up -d --build
+            docker image prune -f
