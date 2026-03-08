@@ -93,6 +93,8 @@ jobs:
             CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }}
             DOCKER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             EOF
+
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
             docker compose -f docker-compose-dev.yml pull
             docker compose -f docker-compose-dev.yml down
