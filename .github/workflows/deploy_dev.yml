@@ -4,32 +4,47 @@ on:
   push:
     branches:
       - dev
-  workflow_dispatch:
+    paths:
+      - 'backend/src/**'
+      - 'docker-compose-dev.yml'
+      - '.github/workflows/deploy_dev.yml'
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/conkiri-backend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Copy files to Server
         uses: appleboy/scp-action@master
@@ -38,7 +53,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "docker-compose-dev.yml"
-          target: "/home/ubuntu/app"
+          target: "/home/ubuntu/backend"
 
       - name: Deploy to Server
         uses: appleboy/ssh-action@master
@@ -47,7 +62,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/app
+            cd /home/ubuntu/backend
             
             cat <<EOF > .env
             SPRING_PROFILES_ACTIVE=dev
@@ -72,11 +87,11 @@ jobs:
             RABBITMQ_PASSWORD=${{ secrets.RABBITMQ_PASSWORD }}
             FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
             FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
-            FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+            FIREBASE_PRIVATE_KEY="${{ secrets.FIREBASE_PRIVATE_KEY }}"
             FIREBASE_CLIENT_ID=${{ secrets.FIREBASE_CLIENT_ID }}
             FIREBASE_PRIVATE_KEY_ID=${{ secrets.FIREBASE_PRIVATE_KEY_ID }}
             CHATBOT_PYTHON_URL=${{ secrets.CHATBOT_PYTHON_URL }}
-            DOCKER_IMAGE=ghcr.io/${{ github.repository_owner }}/conkiri-backend:latest
+            DOCKER_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             EOF
             
             docker compose -f docker-compose-dev.yml pull
