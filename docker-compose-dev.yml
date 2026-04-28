@@ -2,6 +2,7 @@ services:
   backend-dev:
     container_name: backend
     image: ${DOCKER_IMAGE}
+    restart: always
     ports:
       - "8080:8080"
     env_file:
